@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Screen Size Example</title>
+</head>
+<body>
+    <h1>Screen Size Example</h1>
+    <p id="dimensions">Waiting for screen size...</p>
+
+    <script>
+        function updateScreenSize() {
+            var width = window.innerWidth;
+            var height = window.innerHeight;
+
+            document.getElementById('dimensions').textContent = `Width: ${width}px, Height: ${height}px`;
+        }
+
+        // Update size on load
+        window.addEventListener('load', updateScreenSize);
+
+        // Update size on resize
+        window.addEventListener('resize', updateScreenSize);
+    </script>
+</body>
+</html>
