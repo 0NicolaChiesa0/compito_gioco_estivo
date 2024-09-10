@@ -17,6 +17,7 @@
 </head>
 <body>
     <script>
+        var contaLivelli = 1;
         var scene;
         var nemici;
         var nemico;
@@ -31,7 +32,7 @@
             physics: {
                 default: 'arcade',
                 arcade: {
-                    debug: true
+                    //debug: true
                 }
             },
             scene: {
@@ -284,40 +285,56 @@
 
             
         }
-        function contatto(player, nemico){
-            if (player.stoAttaccando){
-                nemico.morto = true;
-                nemico.anims.play("slime_die", true);
-                nemico.setVelocityX(0);
-                nemico.disableBody();
-                scene.time.delayedCall(nemico.anims.currentAnim.duration, ()=>{
-                    nemico.destroy();
-                });
-                
+        function contatto(player, nemico) {
+    if (player.stoAttaccando) {
+        nemico.morto = true;
+        nemico.anims.play("slime_die", true);
+        nemico.setVelocityX(0);
+        nemico.disableBody();
+        
+        // Aggiungi un delay prima della distruzione dello slime
+        scene.time.delayedCall(nemico.anims.currentAnim.duration, () => { 
+            nemico.destroy();
+        });
+
+    } else {
+        player.lives--;
+        this.livesText.setText('Lives: ' + player.lives);
+        if (player.lives <= 0) {
+            player.anims.play("morte", true);
+            player.morto = true;
+            scene.time.delayedCall(player.anims.currentAnim.duration, () => {
+                player.destroy();
+            });
+        } else {
+            player.danno = true;
+            if (!player.flipX) {
+                player.setVelocity(-200, -10);
             } else {
-                player.lives--;
-                this.livesText.setText('Lives: ' + player.lives);
-                if (player.lives<= 0){
-                    player.anims.play("morte", true);
-                    player.morto = true;
-                    scene.time.delayedCall(player.anims.currentAnim.duration, ()=>{
-                        player.destroy();
-                    }) 
-                } else {
-                    player.danno = true;
-                    if (!player.flipX){
-                        player.setVelocity(-200, -10);
-                    } else {
-                        player.setVelocity(200, -10);
-                    }
-                    player.anims.play("danno", true);
-                    scene.time.delayedCall(player.anims.currentAnim.duration, ()=>{ 
-                        player.danno = false;
-                    });
-                    
-                }
+                player.setVelocity(200, -10);
             }
+            player.anims.play("danno", true);
+            scene.time.delayedCall(player.anims.currentAnim.duration, () => { 
+                player.danno = false;
+            });
+
+            // Aggiungi un delay prima che il player subisca il danno dal nemico
+            scene.time.delayedCall(300, () => { // 300 ms di ritardo
+                if (!player.morto) { // Verifica se il player non è già morto
+                    player.lives--;
+                    this.livesText.setText('Lives: ' + player.lives);
+                    if (player.lives <= 0) {
+                        player.anims.play("morte", true);
+                        player.morto = true;
+                        scene.time.delayedCall(player.anims.currentAnim.duration, () => {
+                            player.destroy();
+                        });
+                    }
+                }
+            });
         }
+    }
+}
         function update() {
     const walkSpeed = 200;
     const runSpeed = 400;
@@ -506,8 +523,9 @@ function setAttackHitbox() {
             this.coinsCollected++;
             this.coinsText.setText('Coins: ' + this.coinsCollected);
 
-            if (this.coinsCollected % 5 === 0) {
-                // Rimuovi la chiamata alla funzione spawnEnemy
+            if (this.coinsCollected >= 25) {
+                contaLivelli++;
+                this.coinsCollected = 0;
             }
         }
 
@@ -709,8 +727,9 @@ function setAttackHitbox() {
             this.coinsCollected++;
             this.coinsText.setText('Coins: ' + this.coinsCollected);
 
-            if (this.coinsCollected % 5 === 0) {
-                // Rimuovi la chiamata alla funzione spawnEnemy
+            if (this.coinsCollected >= 25 ) {
+                contaLivelli++;
+                this.coinsCollected = 0;
             }
         }
 
