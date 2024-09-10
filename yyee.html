@@ -39,8 +39,6 @@
         function preload() {
             this.load.image('mappa1', 'assets/mappa_1.png');
             this.load.image('mappa2', 'assets/mappa_2.png');
-            this.load.image('mappa3', 'assets/mappa_3.png');
-            this.load.image('mappa4', 'assets/mappa_4.png');
             this.load.spritesheet('gattocamminata', 'assets/gatto_camminata.png', {
                 frameWidth: 1200,
                 frameHeight: 1200
@@ -69,7 +67,7 @@
                 frameWidth: 64,
                 frameHeight: 64
             });
-            this.load.image('platform', 'assets/platform.png');
+            
             this.load.image('scudo', 'assets/scudo.png'); // Carica l'immagine dello scudo
         }
 
@@ -302,29 +300,24 @@
     if (this.player.y > config.height) {
         loseLife.call(this);
     }
-
-    // Limita il numero di monete attive
-    if (this.coins.countActive(true) < this.maxCoins) {
-        const coin = this.coins.getFirstDead(true);
-        if (coin) {
-            coin.setAlpha(1);
-            coin.setScale(0.1);
-            coin.setDepth(0);
-            coin.setPosition(Phaser.Math.Between(50, config.width - 50), Phaser.Math.Between(50, config.height - 50));
-        }
-    }
 }
 
 
-        function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
-            if (isDownAnimationPlaying) {
-                this.player.body.setSize(670, 330);
-                this.player.body.setOffset(isFlipped ? 240 : 300, 870);
-            } else {
-                this.player.body.setSize(570, 480);
-                this.player.body.setOffset(isFlipped ? 390 : 240, 720);
-            }
-        }
+function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
+    if (this.player.anims.getName() === 'attacco') {
+        this.player.body.setSize(700, 700); // Size specific for attack
+        this.player.body.setOffset(isFlipped ? 150 : 200, 600); // Offset specific for attack
+    } else if (isDownAnimationPlaying) {
+        // 'striscia' and 'terra' animation hitbox
+        this.player.body.setSize(670, 500);
+        this.player.body.setOffset(isFlipped ? 240 : 300, 870);
+    } else {
+        // Default hitbox (for 'corsa', 'camminata', 'idle')
+        this.player.body.setSize(570, 480);
+        this.player.body.setOffset(isFlipped ? 390 : 240, 720);
+    }
+}
+
 
         function resize() {
             const width = this.scale.width;
