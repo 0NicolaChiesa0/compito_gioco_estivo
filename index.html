@@ -70,6 +70,14 @@
                 frameWidth: 1200,
                 frameHeight: 1200
             });
+            this.load.spritesheet('morto', 'assets/gatto_morto.png', {
+                frameWidth: 1200,
+                frameHeight: 1200
+            });
+            this.load.spritesheet('danno', 'assets/gatto_ferito.png', {
+                frameWidth: 1200,
+                frameHeight: 1200
+            });
             this.load.spritesheet('coin', 'assets/coin.png', {
                 frameWidth: 64,
                 frameHeight: 64
@@ -147,6 +155,18 @@
                 frameRate: 15,
                 repeat: 0
             });
+            this.anims.create({
+                key: 'morte',
+                frames: this.anims.generateFrameNumbers('morto', { start: 0, end: 4 }),
+                frameRate: 15,
+                repeat: 0
+            });
+            this.anims.create({
+                key: 'danno',
+                frames: this.anims.generateFrameNumbers('danno', { start: 0, end: 3 }),
+                frameRate: 15,
+                repeat: 0
+            });
 
             this.anims.create({
                 key: 'coin_anim',
@@ -164,7 +184,7 @@
             this.player.setScale(0.1);
             this.player.body.gravity.y = 800;
             this.player.setSize(550, 500);
-            //this.player.lives = 10;
+            this.player.lives = 3;
             // this.player.setOffset(250, 700);
 
             this.cursors = this.input.keyboard.createCursorKeys();
@@ -223,7 +243,7 @@
             this.physics.add.collider(nemici, this.platforms);
             this.physics.add.overlap(this.player, this.dangerPlatform, loseLife, null, this);
 
-            this.lives = 3;
+            //this.lives = 3;
             this.livesText = this.add.text(16, 16, 'Lives: 3', {
                 fontSize: '32px',
                 fill: '#FFFFFF'
@@ -269,14 +289,16 @@
                 nemico.morto = true;
                 nemico.anims.play("slime_die", true);
                 nemico.setVelocityX(0);
+                nemico.disableBody();
                 scene.time.delayedCall(nemico.anims.currentAnim.duration, ()=>{
                     nemico.destroy();
                 });
                 
             } else {
-                this.lives--;
+                player.lives--;
+                this.livesText.setText('Lives: ' + player.lives);
                 if (player.lives<= 0){
-                    //player.anims.play("morte", true);
+                    player.anims.play("morte", true);
                     player.morto = true;
                     scene.time.delayedCall(player.anims.currentAnim.duration, ()=>{
                         player.destroy();
@@ -288,7 +310,7 @@
                     } else {
                         player.setVelocity(200, -10);
                     }
-                    //player.anims.play("danno", true);
+                    player.anims.play("danno", true);
                     scene.time.delayedCall(player.anims.currentAnim.duration, ()=>{ 
                         player.danno = false;
                     });
@@ -380,6 +402,9 @@ function setAttackHitbox() {
     this.player.body.setSize(800, 800);
     this.player.body.setOffset(this.player.flipX ? 150 : 200, 600);
 }
+
+
+
         function resize() {
             const width = this.scale.width;
             const height = this.scale.height;
@@ -455,6 +480,7 @@ function setAttackHitbox() {
                 // Spawn shield with low probability
                 if (Phaser.Math.Between(0, 10) === 0) { // 10% probability
                     const shieldPosition = Phaser.Math.RND.pick(shieldPositions);
+                    //const shield = this.shields.get(shieldPosition.x, shieldPosition.y - 32, 'scudo');
                     if (shield) {
                         shield.setAlpha(1);
                         shield.setOrigin(0.5, 1);
@@ -463,6 +489,7 @@ function setAttackHitbox() {
                         shield.setActive(true);
                         shield.setVisible(true);
                         this.physics.add.existing(shield);
+                        //shield.anims.play('scudo_anim'); // Avvia l'animazione dello scudo
                     }
                 }
 
@@ -516,6 +543,7 @@ function setAttackHitbox() {
                 });
             }
         });
+
         function update() {
     const walkSpeed = 200;
     const runSpeed = 400;
@@ -537,6 +565,7 @@ function setAttackHitbox() {
             }
         }
     });
+    
     if (!this.player.morto && !this.player.danno){
         const isRunning = this.cursors.shift.isDown || this.wasd.shift.isDown;
         const speed = isRunning ? runSpeed : walkSpeed;
@@ -567,7 +596,7 @@ function setAttackHitbox() {
                 this.player.anims.play('attacco', true);
                 this.player.stoAttaccando = true;
                 this.player.setSize(880, 500);
-                this.player.setOffset(250, 700)
+                this.player.setOffset(this.player.flipX ? 50 : 250, 700)
                 this.time.delayedCall(this.player.anims.currentAnim.duration, ()=>{
                     this.player.stoAttaccando = false
                 })
@@ -603,6 +632,8 @@ function setAttackHitbox() {
         this.player.body.setOffset(isFlipped ? 390 : 240, 720);
     }
 }
+
+
         function resize() {
             const width = this.scale.width;
             const height = this.scale.height;
@@ -616,6 +647,7 @@ function setAttackHitbox() {
                 this.player.setPosition(width / 2, height / 2);
                 this.player.setDepth(10);
             }
+
             this.platforms.forEach((platform, index) => {
                 if (platform instanceof Phaser.GameObjects.Rectangle) {
                     platform.setDisplaySize(platform.width * (width / 1920), platform.height * (height / 1080));
@@ -686,7 +718,7 @@ function setAttackHitbox() {
             if (platform === this.dangerPlatform) {
                 if (this.lives > 0) {
                     this.lives--;
-                    this.livesText.setText('Lives: ' + this.lives);
+                    this.livesText.setText('Lives: ' + player.lives);
                     this.player.setPosition(config.width / 2, config.height / 2);
                 } else {
                     this.livesText.setText('Game Over');

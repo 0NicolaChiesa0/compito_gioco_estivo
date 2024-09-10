@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Phaser Overlay Images</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
@@ -9,18 +10,27 @@
             overflow: hidden;
             background-color: #3f3851;
         }
+
         canvas {
             display: block;
             background-color: #3f3851;
         }
     </style>
 </head>
+
 <body>
     <script>
+        var scene;
+        var nemici;
+        var nemico;
         var config = {
             type: Phaser.AUTO,
             width: 1536,
             height: 703,
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+            },
             physics: {
                 default: 'arcade',
                 arcade: {
@@ -63,86 +73,110 @@
                 frameWidth: 1200,
                 frameHeight: 1200
             });
+            this.load.spritesheet('gattoferito', 'assets/gatto_ferito.png', {
+                frameWidth: 1200,
+                frameHeight: 1200
+            });
+            this.load.spritesheet('gattomorto', 'assets/gatto_morto.png', {
+                frameWidth: 1200,
+                frameHeight: 1200
+            });
             this.load.spritesheet('coin', 'assets/coin.png', {
                 frameWidth: 64,
                 frameHeight: 64
             });
-            
-            this.load.image('scudo', 'assets/scudo.png'); // Carica l'immagine dello scudo
+            this.load.spritesheet('slime_move', 'assets/slime_move.png', {
+                frameWidth: 80,
+                frameHeight: 72
+            });
+            this.load.spritesheet('slime_die', 'assets/slime_die.png', {
+                frameWidth: 80,
+                frameHeight: 72
+            });
         }
-
         function create() {
+            scene = this;
             this.backgroundImages = [
                 this.add.image(0, 0, 'mappa4').setOrigin(0, 0),
                 this.add.image(0, 0, 'mappa3').setOrigin(0, 0),
                 this.add.image(0, 0, 'mappa2').setOrigin(0, 0),
                 this.add.image(0, 0, 'mappa1').setOrigin(0, 0)
             ];
-
             this.anims.create({
                 key: 'walk',
                 frames: this.anims.generateFrameNumbers('gattocamminata', { start: 0, end: 7 }),
                 frameRate: 10,
                 repeat: -1
             });
-
+            this.anims.create({
+                key: 'slime',
+                frames: this.anims.generateFrameNumbers('slime_move', { start: 0, end: 6 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'slime_die',
+                frames: this.anims.generateFrameNumbers('slime_die', { start: 0, end: 12 }),
+                frameRate: 10,
+                repeat: -1
+            });
             this.anims.create({
                 key: 'idle',
                 frames: this.anims.generateFrameNumbers('gattostatico', { start: 0, end: 7 }),
                 frameRate: 10,
                 repeat: -1
             });
-
             this.anims.create({
                 key: 'run',
                 frames: this.anims.generateFrameNumbers('gattocorsa', { start: 0, end: 3 }),
                 frameRate: 12,
                 repeat: -1
             });
-
             this.anims.create({
                 key: 'terra',
                 frames: this.anims.generateFrameNumbers('gattoterra', { start: 0, end: 7 }),
                 frameRate: 10,
                 repeat: -1
             });
-
             this.anims.create({
                 key: 'striscia',
                 frames: this.anims.generateFrameNumbers('gattostriscio', { start: 0, end: 7 }),
                 frameRate: 10,
                 repeat: -1
             });
-
             this.anims.create({
                 key: 'attacco',
                 frames: this.anims.generateFrameNumbers('gattoattacco', { start: 0, end: 4 }),
                 frameRate: 15,
                 repeat: 0
             });
-
             this.anims.create({
                 key: 'coin_anim',
                 frames: this.anims.generateFrameNumbers('coin', { start: 0, end: 13 }),
                 frameRate: 10,
                 repeat: -1
             });
-
             this.anims.create({
-                key: 'scudo_anim',
-                frames: this.anims.generateFrameNumbers('scudo', { start: 0, end: 0 }), // Solo un frame per lo scudo
+                key: 'gatto_ferito',
+                frames: this.anims.generateFrameNumbers('gatto', { start: 0, end: 3 }), // 4 frame
                 frameRate: 10,
-                repeat: -1
+                repeat: 0 // L'animazione si ferma alla fine
             });
 
+            this.anims.create({
+                key: 'gatto_morto',
+                frames: this.anims.generateFrameNumbers('gatto', { start: 4, end: 8 }), // 5 frame
+                frameRate: 10,
+                repeat: 0 // L'animazione si ferma alla fine
+            });
+            nemici = this.physics.add.group();
+            creaNemico(600, 500, this);
             this.player = this.physics.add.sprite(config.width / 2, config.height / 2, 'gattostatico').setOrigin(0.5, 0.5);
             this.player.setDepth(1);
             this.player.setCollideWorldBounds(true);
             this.player.setScale(0.1);
             this.player.body.gravity.y = 800;
             this.player.setSize(550, 500);
-            this.player.setOffset(250, 700);
-
             this.cursors = this.input.keyboard.createCursorKeys();
             this.wasd = {
                 up: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
@@ -191,11 +225,11 @@
                     this.physics.add.existing(platform, true);
                 }
             });
-
             this.physics.add.collider(this.player, this.platforms, () => {
                 this.isGrounded = true;
             }, null, this);
-
+            this.physics.add.overlap(this.player, nemici, contatto, null, this);
+            this.physics.add.collider(nemici, this.platforms);
             this.physics.add.overlap(this.player, this.dangerPlatform, loseLife, null, this);
 
             this.lives = 3;
@@ -211,263 +245,63 @@
                 fill: '#FFFFFF'
             });
             this.coinsText.setDepth(10);
-
-            this.shieldIcon = this.add.image(100, 16, 'scudo').setOrigin(0, 0).setScale(0.1).setAlpha(0);
-            this.shieldIcon.setDepth(10);
-
             this.coins = this.physics.add.group({
                 defaultKey: 'coin',
                 maxSize: 25
             });
-
-            this.shields = this.physics.add.group({
-                defaultKey: 'scudo',
-                maxSize: 5
-            });
             this.maxCoins = 5; // Numero massimo di monete attive
-    this.coins = this.physics.add.group({
-        defaultKey: 'coin',
-        maxSize: this.maxCoins
-    });
-
+            this.coins = this.physics.add.group({
+                defaultKey: 'coin',
+                maxSize: this.maxCoins
+            });
             spawnCoins.call(this);
-
             this.spawnCoinTimer = this.time.addEvent({
                 delay: 20000, // 20 secondi
                 callback: spawnCoins,
                 callbackScope: this,
                 loop: true
             });
-
             resize.call(this);
-
-            
         }
-
-        function update() {
-    const walkSpeed = 200;
-    const runSpeed = 400;
-    let moving = false;
-
-    const isRunning = this.cursors.shift.isDown || this.wasd.shift.isDown;
-    const speed = isRunning ? runSpeed : walkSpeed;
-    const isFlipped = this.player.flipX;
-    const isDownAnimationPlaying = this.player.anims.getName() === 'striscia';
-
-    if (this.cursors.left.isDown || this.wasd.left.isDown) {
-        this.player.setVelocityX(-speed);
-        this.player.setFlipX(true);
-        moving = true;
-    } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
-        this.player.setVelocityX(speed);
-        this.player.setFlipX(false);
-        moving = true;
-    } else {
-        this.player.setVelocityX(0);
-    }
-
-    if (this.spacebar.isDown && this.isGrounded) {
-        this.player.setVelocityY(-400);
-        this.isGrounded = false;
-    }
-
-    if (this.cursors.down.isDown || this.wasd.down.isDown) {
-        this.player.anims.play('striscia', true);
-        updatePlayerHitboxOffset.call(this, isFlipped, true);
-    } else if (this.eKey.isDown) {
-        if (!this.player.anims.isPlaying || this.player.anims.getName() !== 'attacco') {
-            this.player.anims.play('attacco', true);
-        }
-    } else {
-        if (moving) {
-            if (isRunning) {
-                this.player.anims.play('run', true);
-            } else {
-                this.player.anims.play('walk', true);
-            }
-        } else {
-            this.player.anims.play('idle', true);
-        }
-        updatePlayerHitboxOffset.call(this, isFlipped, false);
-    }
-
-    if (this.player.flipX) {
-        this.player.setOffset(400, 700);
-    } else {
-        this.player.setOffset(250, 700);
-    }
-
-    if (this.player.y > config.height) {
-        loseLife.call(this);
-    }
-}
-
-
-function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
-    if (this.player.anims.getName() === 'attacco') {
-        this.player.body.setSize(700, 700); // Size specific for attack
-        this.player.body.setOffset(isFlipped ? 150 : 200, 600); // Offset specific for attack
-    } else if (isDownAnimationPlaying) {
-        // 'striscia' and 'terra' animation hitbox
-        this.player.body.setSize(670, 500);
-        this.player.body.setOffset(isFlipped ? 240 : 300, 870);
-    } else {
-        // Default hitbox (for 'corsa', 'camminata', 'idle')
-        this.player.body.setSize(570, 480);
-        this.player.body.setOffset(isFlipped ? 390 : 240, 720);
-    }
-}
-
-
-        function resize() {
-            const width = this.scale.width;
-            const height = this.scale.height;
-
-            this.backgroundImages.forEach((image, index) => {
-                image.setDisplaySize(width, height);
-                image.setDepth(index === 3 ? 4 : 1);
-            });
-
-            if (this.player) {
-                this.player.setPosition(width / 2, height / 2);
-                this.player.setDepth(1);
-            }
-
-            this.platforms.forEach((platform, index) => {
-                if (platform instanceof Phaser.GameObjects.Rectangle) {
-                    platform.setDisplaySize(platform.width * (width / 1920), platform.height * (height / 1080));
-                    platform.setPosition((width / this.platforms.length) * index, height / 2);
-                } else {
-                    platform.setDisplaySize(platform.width * (width / 1920), platform.height * (height / 1080));
-                }
-            });
-
-            if (this.livesText) {
-                this.livesText.setPosition(16, 16);
-            }
-
-            if (this.coinsText) {
-                this.coinsText.setPosition(16, 56);
-            }
-
-            if (this.shieldIcon) {
-                this.shieldIcon.setPosition(16, 96); // Posiziona l'icona dello scudo
-            }
-        }
-
-        function spawnCoins() {
-            const coinPositions = [
-                { x: 1070, y: 200 },
-                { x: 1000, y: 420 },
-                { x: 1115, y: 558 },
-                { x: 993, y: 645 },
-                { x: 544, y: 645 },
-                { x: 420, y: 558 },
-                { x: 470, y: 328 },
-                { x: 744, y: 155 },
-                { x: 720, y: 505 },
-                { x: 545, y: 330 }
-            ];
-
-            const shieldPositions = [
-                { x: 820, y: 400 },
-                { x: 650, y: 530 }
-            ];
-
-            const interval = Phaser.Math.Between(1000, 3000); // Intervallo tra 1 e 3 secondi
-
-            if (this.coins.getTotalFree() > 0) {
-                const position = Phaser.Math.RND.pick(coinPositions);
-
-                const coin = this.coins.get(position.x, position.y - 32, 'coin');
-                if (coin) {
-                    coin.setAlpha(1);
-                    coin.setOrigin(0.5, 1);
-                    coin.setDepth(2);
-                    coin.setScale(0.5);
-                    coin.setActive(true);
-                    coin.setVisible(true);
-                    this.physics.add.existing(coin);
-                    coin.anims.play('coin_anim'); // Avvia l'animazione della moneta
-                }
-
-                // Spawn shield with low probability
-                if (Phaser.Math.Between(0, 10) === 0) { // 10% probability
-                    const shieldPosition = Phaser.Math.RND.pick(shieldPositions);
-                    const shield = this.shields.get(shieldPosition.x, shieldPosition.y - 32, 'scudo');
-                    if (shield) {
-                        shield.setAlpha(1);
-                        shield.setOrigin(0.5, 1);
-                        shield.setDepth(2);
-                        shield.setScale(0.5);
-                        shield.setActive(true);
-                        shield.setVisible(true);
-                        this.physics.add.existing(shield);
-                        shield.anims.play('scudo_anim'); // Avvia l'animazione dello scudo
-                    }
-                }
-
-                this.time.delayedCall(interval, spawnCoins, [], this);
-            }
-
-            this.physics.add.overlap(this.player, this.coins, collectCoin, null, this);
-            this.physics.add.overlap(this.player, this.shields, collectShield, null, this);
-        }
-
-        function collectCoin(player, coin) {
-            coin.setAlpha(0);
-            coin.disableBody(true, true);
-            this.coinsCollected++;
-            this.coinsText.setText('Coins: ' + this.coinsCollected);
-
-            if (this.coinsCollected % 5 === 0) {
-                // Rimuovi la chiamata alla funzione spawnEnemy
-            }
-        }
-
-        function collectShield(player, shield) {
-            shield.setAlpha(0);
-            shield.disableBody(true, true);
-            this.shieldIcon.setAlpha(1); // Mostra l'icona dello scudo
-            this.shieldTime = this.time.now + 10000; // Scudo attivo per 10 secondi
-        }
-
-        function loseLife(player, platform) {
-            if (platform === this.dangerPlatform) {
-                if (this.shieldIcon.alpha === 1) { // Se lo scudo è attivo
-                    this.shieldIcon.setAlpha(0); // Nascondi l'icona dello scudo
-                } else if (this.lives > 0) {
-                    this.lives--;
-                    this.livesText.setText('Lives: ' + this.lives);
-                    this.player.setPosition(config.width / 2, config.height / 2);
-                } else {
-                    this.livesText.setText('Game Over');
-                    this.player.setVelocityX(0);
-                    this.player.anims.stop();
-                }
-            }
-        }
-
-        window.addEventListener('resize', function() {
-            if (game && game.scene && game.scene.scenes) {
-                game.scene.scenes.forEach(scene => {
-                    if (scene.resize) {
-                        scene.resize.call(scene);
-                    }
+        function contatto(player, nemico) {
+            if (player.stoAttaccando) {
+                nemico.morto = true;
+                nemico.anims.play("slime_die", true);
+                nemico.setVelocityX(0);
+                scene.time.delayedCall(nemico.anims.currentAnim.duration, () => {
+                    nemico.destroy();
                 });
-            }
-        });
 
+            } else {
+                this.lives--;
+                if (player.lives <= 0) {
+                    //player.anims.play("morte", true);
+                    player.morto = true;
+                    scene.time.delayedCall(player.anims.currentAnim.duration, () => {
+                        player.destroy();
+                    })
+                } else {
+                    player.danno = true;
+                    if (!player.flipX) {
+                        player.setVelocity(-200, -10);
+                    } else {
+                        player.setVelocity(200, -10);
+                    }
+                    //player.anims.play("danno", true);
+                    scene.time.delayedCall(player.anims.currentAnim.duration, () => {
+                        player.danno = false;
+                    });
+                }
+            }
+        }
         function update() {
             const walkSpeed = 200;
             const runSpeed = 400;
             let moving = false;
-
             const isRunning = this.cursors.shift.isDown || this.wasd.shift.isDown;
-            const speed = isRunning ? runSpeed : walkSpeed;
             const isFlipped = this.player.flipX;
             const isDownAnimationPlaying = this.player.anims.getName() === 'striscia';
-
+            const speed = isRunning && !isDownAnimationPlaying ? runSpeed : walkSpeed;
             if (this.cursors.left.isDown || this.wasd.left.isDown) {
                 this.player.setVelocityX(-speed);
                 this.player.setFlipX(true);
@@ -479,12 +313,10 @@ function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
             } else {
                 this.player.setVelocityX(0);
             }
-
             if (this.spacebar.isDown && this.isGrounded) {
                 this.player.setVelocityY(-400);
                 this.isGrounded = false;
             }
-
             if (this.cursors.down.isDown || this.wasd.down.isDown) {
                 this.player.anims.play('striscia', true);
                 updatePlayerHitboxOffset.call(this, isFlipped, true);
@@ -492,6 +324,7 @@ function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
                 if (!this.player.anims.isPlaying || this.player.anims.getName() !== 'attacco') {
                     this.player.anims.play('attacco', true);
                 }
+                updatePlayerHitboxOffset.call(this, isFlipped, false);
             } else {
                 if (moving) {
                     if (isRunning) {
@@ -499,47 +332,51 @@ function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
                     } else {
                         this.player.anims.play('walk', true);
                     }
+                    updatePlayerHitboxOffset.call(this, isFlipped, false);
                 } else {
                     this.player.anims.play('idle', true);
+                    updatePlayerHitboxOffset.call(this, isFlipped, false);
                 }
-                updatePlayerHitboxOffset.call(this, isFlipped, false);
             }
-
-            if (this.player.flipX) {
-                this.player.setOffset(400, 700);
-            } else {
-                this.player.setOffset(250, 700);
-            }
-
             if (this.player.y > config.height) {
                 loseLife.call(this);
             }
         }
-
-        function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
-            if (isDownAnimationPlaying) {
-                this.player.body.setSize(670, 330);
-                this.player.body.setOffset(isFlipped ? 240 : 300, 870);
-            } else {
-                this.player.body.setSize(570, 480);
-                this.player.body.setOffset(isFlipped ? 390 : 240, 720);
-            }
+        function creaNemico(x, y, scena) {
+            nemico = scena.physics.add.sprite(x, y, 'slime_move');
+            nemico.setDepth(10);
+            nemico.setScale(2.5)
+            nemico.anims.play("slime", true);
+            nemici.add(nemico);
+            nemico.setSize(20, 20);
+            nemico.setOffset(25, 28);
+            nemico.body.gravity.y = 800;
+            nemico.nemicoX = nemico.x;
+        }
+        function setDefaultHitbox() {
+            this.player.body.setSize(570, 480);
+            this.player.body.setOffset(this.player.flipX ? 390 : 240, 720);
+        }
+        function setDownHitbox() {
+            this.player.body.setSize(670, 330);
+            this.player.body.setOffset(this.player.flipX ? 240 : 300, 870);
         }
 
+        function setAttackHitbox() {
+            this.player.body.setSize(800, 800);
+            this.player.body.setOffset(this.player.flipX ? 150 : 200, 600);
+        }
         function resize() {
             const width = this.scale.width;
             const height = this.scale.height;
-
             this.backgroundImages.forEach((image, index) => {
                 image.setDisplaySize(width, height);
                 image.setDepth(index === 3 ? 4 : 1);
             });
-
             if (this.player) {
                 this.player.setPosition(width / 2, height / 2);
-                this.player.setDepth(10);
+                this.player.setDepth(1);
             }
-
             this.platforms.forEach((platform, index) => {
                 if (platform instanceof Phaser.GameObjects.Rectangle) {
                     platform.setDisplaySize(platform.width * (width / 1920), platform.height * (height / 1080));
@@ -548,16 +385,16 @@ function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
                     platform.setDisplaySize(platform.width * (width / 1920), platform.height * (height / 1080));
                 }
             });
-
             if (this.livesText) {
                 this.livesText.setPosition(16, 16);
             }
-
             if (this.coinsText) {
                 this.coinsText.setPosition(16, 56);
             }
+            if (this.shieldIcon) {
+                this.shieldIcon.setPosition(16, 96); // Posiziona l'icona dello scudo
+            }
         }
-
         function spawnCoins() {
             const coinPositions = [
                 { x: 1070, y: 200 },
@@ -571,9 +408,214 @@ function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
                 { x: 720, y: 505 },
                 { x: 545, y: 330 }
             ];
-
+            const shieldPositions = [
+                { x: 820, y: 400 },
+                { x: 650, y: 530 }
+            ];
             const interval = Phaser.Math.Between(1000, 3000); // Intervallo tra 1 e 3 secondi
+            if (this.coins.getTotalFree() > 0) {
+                const position = Phaser.Math.RND.pick(coinPositions);
+                const coin = this.coins.get(position.x, position.y - 32, 'coin');
+                if (coin) {
+                    coin.setAlpha(1);
+                    coin.setOrigin(0.5, 1);
+                    coin.setDepth(2);
+                    coin.setScale(0.5);
+                    coin.setActive(true);
+                    coin.setVisible(true);
+                    this.physics.add.existing(coin);
+                    coin.anims.play('coin_anim'); // Avvia l'animazione della moneta
+                }
+                if (Phaser.Math.Between(0, 10) === 0) { // 10% probability
+                    const shieldPosition = Phaser.Math.RND.pick(shieldPositions);
+                    if (shield) {
+                        shield.setAlpha(1);
+                        shield.setOrigin(0.5, 1);
+                        shield.setDepth(2);
+                        shield.setScale(0.5);
+                        shield.setActive(true);
+                        shield.setVisible(true);
+                        this.physics.add.existing(shield);
+                    }
+                }
+                this.time.delayedCall(interval, spawnCoins, [], this);
+            }
+            this.physics.add.overlap(this.player, this.coins, collectCoin, null, this);
+            this.physics.add.overlap(this.player, this.shields, collectShield, null, this);
+        }
+        function collectCoin(player, coin) {
+            coin.setAlpha(0);
+            coin.disableBody(true, true);
+            this.coinsCollected++;
+            this.coinsText.setText('Coins: ' + this.coinsCollected);
+            if (this.coinsCollected % 5 === 0) {
+                // Rimuovi la chiamata alla funzione spawnEnemy
+            }
+        }
+        function collectShield(player, shield) {
+            shield.setAlpha(0);
+            shield.disableBody(true, true);
+            this.shieldIcon.setAlpha(1); // Mostra l'icona dello scudo
+            this.shieldTime = this.time.now + 10000; // Scudo attivo per 10 secondi
+        }
+        function loseLife(player, platform) {
+            if (platform === this.dangerPlatform) {
+                if (this.shieldIcon.alpha === 1) { // Se lo scudo è attivo
+                    this.shieldIcon.setAlpha(0); // Nascondi l'icona dello scudo
+                } else if (this.lives > 0) {
+                    this.lives--; // Abbassa il contatore delle vite
+                    this.livesText.setText('Lives: ' + this.lives);
 
+                    // Riproduci l'animazione "gatto ferito" e disabilita temporaneamente il movimento
+                    this.player.anims.play('gatto_ferito', true);
+                    this.player.setVelocityX(0); // Ferma il gatto temporaneamente
+                    this.player.danno = true; // Impedisce che il gatto si muova durante il danno
+                    this.time.delayedCall(1000, () => {
+                        this.player.danno = false; // Dopo 1 secondo, il gatto può muoversi di nuovo
+                        this.player.setPosition(config.width / 2, config.height / 2); // Riporta il gatto in posizione
+                    });
+
+                    // Se le vite sono 0, riproduci l'animazione del gatto morto
+                    if (this.lives === 0) {
+                        this.player.anims.play('gatto_morto', true);
+                        this.player.morto = true; // Impedisce che il giocatore possa controllare il gatto
+                        this.time.delayedCall(2000, () => {
+                            this.livesText.setText('Game Over');
+                            this.player.setVelocityX(0);
+                            this.player.anims.stop(); // Ferma tutte le animazioni
+                        });
+                    }
+
+                } else {
+                    this.livesText.setText('Game Over');
+                    this.player.setVelocityX(0);
+                    this.player.anims.stop();
+                }
+            }
+        }
+
+        function update() {
+            const walkSpeed = 200;
+            const runSpeed = 400;
+            let moving = false;
+            nemici.children.iterate(function (nemico) {
+                if (!nemico.morto) {
+                    if (!nemico.flipX) {
+                        nemico.setVelocityX(50);
+                        if (nemico.x > nemico.nemicoX + 70) {
+                            nemico.flipX = true;
+                            nemico.setOffset(35, 28);
+                        }
+                    } else {
+                        nemico.setVelocityX(-50);
+                        if (nemico.x < nemico.nemicoX - 70) {
+                            nemico.flipX = false;
+                            nemico.setOffset(25, 28);
+                        }
+                    }
+                }
+            });
+            if (!this.player.morto && !this.player.danno) {
+                const isRunning = this.cursors.shift.isDown || this.wasd.shift.isDown;
+                const speed = isRunning ? runSpeed : walkSpeed;
+                const isFlipped = this.player.flipX;
+                const isDownAnimationPlaying = this.player.anims.getName() === 'striscia';
+                if (this.cursors.left.isDown || this.wasd.left.isDown) {
+                    this.player.setVelocityX(-speed);
+                    this.player.setFlipX(true);
+                    moving = true;
+                } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
+                    this.player.setVelocityX(speed);
+                    this.player.setFlipX(false);
+                    moving = true;
+                } else {
+                    this.player.setVelocityX(0);
+                }
+                if (this.spacebar.isDown && this.isGrounded) {
+                    this.player.setVelocityY(-400);
+                    this.isGrounded = false;
+                }
+                if (this.cursors.down.isDown || this.wasd.down.isDown) {
+                    this.player.anims.play('striscia', true);
+                    updatePlayerHitboxOffset.call(this, isFlipped, true);
+                } else if (this.eKey.isDown) {
+                    if (!this.player.anims.isPlaying || this.player.anims.getName() !== 'attacco') {
+                        this.player.anims.play('attacco', true);
+                        this.player.stoAttaccando = true;
+                        this.player.setSize(880, 500);
+                        this.player.setOffset(250, 700)
+                        this.time.delayedCall(this.player.anims.currentAnim.duration, () => {
+                            this.player.stoAttaccando = false
+                        })
+                    }
+                    updatePlayerHitboxOffset.call(this, isFlipped, false);
+                } else if (!this.player.stoAttaccando) {
+                    if (moving) {
+                        if (isRunning) {
+                            this.player.anims.play('run', true);
+                        } else {
+                            this.player.anims.play('walk', true);
+                        }
+                        updatePlayerHitboxOffset.call(this, isFlipped, false);
+                    } else {
+                        this.player.anims.play('idle', true);
+                        updatePlayerHitboxOffset.call(this, isFlipped, false);
+                    }
+                }
+                if (this.player.y > config.height) {
+                    loseLife.call(this);
+                }
+            }
+        }
+        function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
+            if (isDownAnimationPlaying && !this.player.stoAttaccando) {
+                this.player.body.setSize(670, 330);
+                this.player.body.setOffset(isFlipped ? 240 : 300, 870);
+            } else if (!this.player.stoAttaccando) {
+                this.player.body.setSize(570, 480);
+                this.player.body.setOffset(isFlipped ? 390 : 240, 720);
+            }
+        }
+        function resize() {
+            const width = this.scale.width;
+            const height = this.scale.height;
+            this.backgroundImages.forEach((image, index) => {
+                image.setDisplaySize(width, height);
+                image.setDepth(index === 3 ? 4 : 1);
+            });
+            if (this.player) {
+                this.player.setPosition(width / 2, height / 2);
+                this.player.setDepth(10);
+            }
+            this.platforms.forEach((platform, index) => {
+                if (platform instanceof Phaser.GameObjects.Rectangle) {
+                    platform.setDisplaySize(platform.width * (width / 1920), platform.height * (height / 1080));
+                    platform.setPosition((width / this.platforms.length) * index, height / 2);
+                } else {
+                    platform.setDisplaySize(platform.width * (width / 1920), platform.height * (height / 1080));
+                }
+            });
+            if (this.livesText) {
+                this.livesText.setPosition(16, 16);
+            }
+            if (this.coinsText) {
+                this.coinsText.setPosition(16, 56);
+            }
+        }
+        function spawnCoins() {
+            const coinPositions = [
+                { x: 1070, y: 200 },
+                { x: 1000, y: 420 },
+                { x: 1115, y: 558 },
+                { x: 993, y: 645 },
+                { x: 544, y: 645 },
+                { x: 420, y: 558 },
+                { x: 470, y: 328 },
+                { x: 744, y: 155 },
+                { x: 720, y: 505 },
+                { x: 545, y: 330 }
+            ];
+            const interval = Phaser.Math.Between(1000, 3000); // Intervallo tra 1 e 3 secondi
             if (this.coins.getTotalFree() > 0) {
                 const position = Phaser.Math.RND.pick(coinPositions);
 
@@ -588,24 +630,18 @@ function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
                     this.physics.add.existing(coin);
                     coin.anims.play('coin_anim'); // Avvia l'animazione della moneta
                 }
-
                 this.time.delayedCall(interval, spawnCoins, [], this);
             }
-
             this.physics.add.overlap(this.player, this.coins, collectCoin, null, this);
         }
-
         function collectCoin(player, coin) {
             coin.setAlpha(0);
             coin.disableBody(true, true);
             this.coinsCollected++;
             this.coinsText.setText('Coins: ' + this.coinsCollected);
-
             if (this.coinsCollected % 5 === 0) {
-                // Rimuovi la chiamata alla funzione spawnEnemy
             }
         }
-
         function loseLife(player, platform) {
             if (platform === this.dangerPlatform) {
                 if (this.lives > 0) {
@@ -619,8 +655,7 @@ function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
                 }
             }
         }
-
-        window.addEventListener('resize', function() {
+        window.addEventListener('resize', function () {
             if (game && game.scene && game.scene.scenes) {
                 game.scene.scenes.forEach(scene => {
                     if (scene.resize) {
@@ -631,4 +666,5 @@ function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
         });
     </script>
 </body>
+
 </html>
