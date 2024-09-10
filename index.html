@@ -17,10 +17,17 @@
 </head>
 <body>
     <script>
+        var scene;
+        var nemici;
+        var nemico;
         var config = {
             type: Phaser.AUTO,
             width: 1536,
             height: 703,
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+            },
             physics: {
                 default: 'arcade',
                 arcade: {
@@ -67,11 +74,19 @@
                 frameWidth: 64,
                 frameHeight: 64
             });
+            this.load.spritesheet('slime_move', 'assets/slime_move.png', {
+                frameWidth: 80,
+                frameHeight: 72
+            });
+            this.load.spritesheet('slime_die', 'assets/slime_die.png', {
+                frameWidth: 80,
+                frameHeight: 72
+            });
             
-            this.load.image('scudo', 'assets/scudo.png'); // Carica l'immagine dello scudo
         }
 
         function create() {
+            scene = this;
             this.backgroundImages = [
                 this.add.image(0, 0, 'mappa4').setOrigin(0, 0),
                 this.add.image(0, 0, 'mappa3').setOrigin(0, 0),
@@ -82,6 +97,18 @@
             this.anims.create({
                 key: 'walk',
                 frames: this.anims.generateFrameNumbers('gattocamminata', { start: 0, end: 7 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'slime',
+                frames: this.anims.generateFrameNumbers('slime_move', { start: 0, end: 6 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'slime_die',
+                frames: this.anims.generateFrameNumbers('slime_die', { start: 0, end: 12 }),
                 frameRate: 10,
                 repeat: -1
             });
@@ -128,19 +155,16 @@
                 repeat: -1
             });
 
-            this.anims.create({
-                key: 'scudo_anim',
-                frames: this.anims.generateFrameNumbers('scudo', { start: 0, end: 0 }), // Solo un frame per lo scudo
-                frameRate: 10,
-                repeat: -1
-            });
-
+            
+            nemici = this.physics.add.group();
+            creaNemico(600, 500, this);
             this.player = this.physics.add.sprite(config.width / 2, config.height / 2, 'gattostatico').setOrigin(0.5, 0.5);
             this.player.setDepth(1);
             this.player.setCollideWorldBounds(true);
             this.player.setScale(0.1);
             this.player.body.gravity.y = 800;
             this.player.setSize(550, 500);
+            //this.player.lives = 10;
             // this.player.setOffset(250, 700);
 
             this.cursors = this.input.keyboard.createCursorKeys();
@@ -195,7 +219,8 @@
             this.physics.add.collider(this.player, this.platforms, () => {
                 this.isGrounded = true;
             }, null, this);
-
+            this.physics.add.overlap(this.player, nemici, contatto, null, this);
+            this.physics.add.collider(nemici, this.platforms);
             this.physics.add.overlap(this.player, this.dangerPlatform, loseLife, null, this);
 
             this.lives = 3;
@@ -212,18 +237,14 @@
             });
             this.coinsText.setDepth(10);
 
-            this.shieldIcon = this.add.image(100, 16, 'scudo').setOrigin(0, 0).setScale(0.1).setAlpha(0);
-            this.shieldIcon.setDepth(10);
+            
 
             this.coins = this.physics.add.group({
                 defaultKey: 'coin',
                 maxSize: 25
             });
 
-            this.shields = this.physics.add.group({
-                defaultKey: 'scudo',
-                maxSize: 5
-            });
+            
             this.maxCoins = 5; // Numero massimo di monete attive
     this.coins = this.physics.add.group({
         defaultKey: 'coin',
@@ -243,21 +264,50 @@
 
             
         }
-
+        function contatto(player, nemico){
+            if (player.stoAttaccando){
+                nemico.morto = true;
+                nemico.anims.play("slime_die", true);
+                nemico.setVelocityX(0);
+                scene.time.delayedCall(nemico.anims.currentAnim.duration, ()=>{
+                    nemico.destroy();
+                });
+                
+            } else {
+                this.lives--;
+                if (player.lives<= 0){
+                    //player.anims.play("morte", true);
+                    player.morto = true;
+                    scene.time.delayedCall(player.anims.currentAnim.duration, ()=>{
+                        player.destroy();
+                    }) 
+                } else {
+                    player.danno = true;
+                    if (!player.flipX){
+                        player.setVelocity(-200, -10);
+                    } else {
+                        player.setVelocity(200, -10);
+                    }
+                    //player.anims.play("danno", true);
+                    scene.time.delayedCall(player.anims.currentAnim.duration, ()=>{ 
+                        player.danno = false;
+                    });
+                    
+                }
+            }
+        }
         function update() {
     const walkSpeed = 200;
     const runSpeed = 400;
     let moving = false;
 
-    // Controlla se SHIFT è premuto
+    // Verifica se SHIFT è premuto
     const isRunning = this.cursors.shift.isDown || this.wasd.shift.isDown;
-    // Controlla se il personaggio è in scivolamento
+    const isFlipped = this.player.flipX;
     const isDownAnimationPlaying = this.player.anims.getName() === 'striscia';
-    
-    // Se SHIFT è premuto e il personaggio è in scivolamento, usa la velocità normale
-    const speed = (this.cursors.down.isDown || this.wasd.down.isDown) && isRunning
-        ? walkSpeed
-        : (isRunning ? runSpeed : walkSpeed);
+
+    // Verifica se è in corsa e se è in scivolamento
+    const speed = isRunning && !isDownAnimationPlaying ? runSpeed : walkSpeed;
 
     if (this.cursors.left.isDown || this.wasd.left.isDown) {
         this.player.setVelocityX(-speed);
@@ -278,12 +328,12 @@
 
     if (this.cursors.down.isDown || this.wasd.down.isDown) {
         this.player.anims.play('striscia', true);
-        updatePlayerHitboxOffset.call(this, this.player.flipX, true);
+        updatePlayerHitboxOffset.call(this, isFlipped, true);
     } else if (this.eKey.isDown) {
         if (!this.player.anims.isPlaying || this.player.anims.getName() !== 'attacco') {
             this.player.anims.play('attacco', true);
         }
-        updatePlayerHitboxOffset.call(this, this.player.flipX, false);
+        updatePlayerHitboxOffset.call(this, isFlipped, false);
     } else {
         if (moving) {
             if (isRunning) {
@@ -291,10 +341,10 @@
             } else {
                 this.player.anims.play('walk', true);
             }
-            updatePlayerHitboxOffset.call(this, this.player.flipX, false);
+            updatePlayerHitboxOffset.call(this, isFlipped, false);
         } else {
             this.player.anims.play('idle', true);
-            updatePlayerHitboxOffset.call(this, this.player.flipX, false);
+            updatePlayerHitboxOffset.call(this, isFlipped, false);
         }
     }
 
@@ -304,8 +354,18 @@
 }
 
 
-
-
+function creaNemico(x,y, scena){
+    nemico = scena.physics.add.sprite(x, y, 'slime_move');
+    nemico.setDepth(10);
+    nemico.setScale(2.5)
+    nemico.anims.play("slime", true);
+    nemici.add(nemico);
+    nemico.setSize(20, 20);
+    nemico.setOffset(25,28);
+    nemico.body.gravity.y = 800;
+    nemico.nemicoX = nemico.x;
+    
+}
 function setDefaultHitbox() {
     this.player.body.setSize(570, 480);
     this.player.body.setOffset(this.player.flipX ? 390 : 240, 720);
@@ -316,13 +376,10 @@ function setDownHitbox() {
     this.player.body.setOffset(this.player.flipX ? 240 : 300, 870);
 }
 
-function setAttackHitbox(isFlipped) {
-    this.player.body.setSize(1000, 800); // Aumenta la larghezza della hitbox
-    this.player.body.setOffset(isFlipped ? 50 : 100, 600); // Modifica l'offset in base alla direzione
+function setAttackHitbox() {
+    this.player.body.setSize(800, 800);
+    this.player.body.setOffset(this.player.flipX ? 150 : 200, 600);
 }
-
-
-
         function resize() {
             const width = this.scale.width;
             const height = this.scale.height;
@@ -398,7 +455,6 @@ function setAttackHitbox(isFlipped) {
                 // Spawn shield with low probability
                 if (Phaser.Math.Between(0, 10) === 0) { // 10% probability
                     const shieldPosition = Phaser.Math.RND.pick(shieldPositions);
-                    const shield = this.shields.get(shieldPosition.x, shieldPosition.y - 32, 'scudo');
                     if (shield) {
                         shield.setAlpha(1);
                         shield.setOrigin(0.5, 1);
@@ -407,7 +463,6 @@ function setAttackHitbox(isFlipped) {
                         shield.setActive(true);
                         shield.setVisible(true);
                         this.physics.add.existing(shield);
-                        shield.anims.play('scudo_anim'); // Avvia l'animazione dello scudo
                     }
                 }
 
@@ -461,77 +516,93 @@ function setAttackHitbox(isFlipped) {
                 });
             }
         });
-
         function update() {
-            const walkSpeed = 200;
-            const runSpeed = 400;
-            let moving = false;
-
-            const isRunning = this.cursors.shift.isDown || this.wasd.shift.isDown;
-            const speed = isRunning ? runSpeed : walkSpeed;
-            const isFlipped = this.player.flipX;
-            const isDownAnimationPlaying = this.player.anims.getName() === 'striscia';
-
-            if (this.cursors.left.isDown || this.wasd.left.isDown) {
-                this.player.setVelocityX(-speed);
-                this.player.setFlipX(true);
-                moving = true;
-            } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
-                this.player.setVelocityX(speed);
-                this.player.setFlipX(false);
-                moving = true;
-            } else {
-                this.player.setVelocityX(0);
-            }
-
-            if (this.spacebar.isDown && this.isGrounded) {
-                this.player.setVelocityY(-400);
-                this.isGrounded = false;
-            }
-
-            if (this.cursors.down.isDown || this.wasd.down.isDown) {
-                this.player.anims.play('striscia', true);
-                updatePlayerHitboxOffset.call(this, isFlipped, true);
-            } else if (this.eKey.isDown) {
-                if (!this.player.anims.isPlaying || this.player.anims.getName() !== 'attacco') {
-                    this.player.anims.play('attacco', true);
+    const walkSpeed = 200;
+    const runSpeed = 400;
+    let moving = false;
+    nemici.children.iterate(function (nemico) {
+        if (!nemico.morto){
+            if (!nemico.flipX){
+                nemico.setVelocityX(50);
+                if (nemico.x > nemico.nemicoX + 70){
+                    nemico.flipX = true;
+                    nemico.setOffset(35,28);
                 }
             } else {
-                if (moving) {
-                    if (isRunning) {
-                        this.player.anims.play('run', true);
-                    } else {
-                        this.player.anims.play('walk', true);
-                    }
+                nemico.setVelocityX(-50);
+                if (nemico.x < nemico.nemicoX - 70){
+                    nemico.flipX = false;
+                    nemico.setOffset(25,28);
+                }
+            }
+        }
+    });
+    if (!this.player.morto && !this.player.danno){
+        const isRunning = this.cursors.shift.isDown || this.wasd.shift.isDown;
+        const speed = isRunning ? runSpeed : walkSpeed;
+        const isFlipped = this.player.flipX;
+        const isDownAnimationPlaying = this.player.anims.getName() === 'striscia';
+        if (this.cursors.left.isDown || this.wasd.left.isDown) {
+            this.player.setVelocityX(-speed);
+            this.player.setFlipX(true);
+            moving = true;
+        } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
+            this.player.setVelocityX(speed);
+            this.player.setFlipX(false);
+            moving = true;
+        } else {
+            this.player.setVelocityX(0);
+        }
+
+        if (this.spacebar.isDown && this.isGrounded) {
+            this.player.setVelocityY(-400);
+            this.isGrounded = false;
+        }
+
+        if (this.cursors.down.isDown || this.wasd.down.isDown) {
+            this.player.anims.play('striscia', true);
+            updatePlayerHitboxOffset.call(this, isFlipped, true);
+        } else if (this.eKey.isDown) {
+            if (!this.player.anims.isPlaying || this.player.anims.getName() !== 'attacco') {
+                this.player.anims.play('attacco', true);
+                this.player.stoAttaccando = true;
+                this.player.setSize(880, 500);
+                this.player.setOffset(250, 700)
+                this.time.delayedCall(this.player.anims.currentAnim.duration, ()=>{
+                    this.player.stoAttaccando = false
+                })
+            }
+            updatePlayerHitboxOffset.call(this, isFlipped, false);
+        } else if(!this.player.stoAttaccando){
+            if (moving) {
+                if (isRunning) {
+                    this.player.anims.play('run', true);
                 } else {
-                    this.player.anims.play('idle', true);
+                    this.player.anims.play('walk', true);
                 }
                 updatePlayerHitboxOffset.call(this, isFlipped, false);
-            }
-
-            // if (this.player.flipX) {
-            //     this.player.setOffset(400, 700);
-            // } else {
-            //     this.player.setOffset(250, 700);
-            // }
-
-            if (this.player.y > config.height) {
-                loseLife.call(this);
+            } else {
+                this.player.anims.play('idle', true);
+                updatePlayerHitboxOffset.call(this, isFlipped, false);
             }
         }
 
+        if (this.player.y > config.height) {
+            loseLife.call(this);
+        }
+    }
+}
+
+
         function updatePlayerHitboxOffset(isFlipped, isDownAnimationPlaying) {
-    if (isDownAnimationPlaying) {
+    if (isDownAnimationPlaying && !this.player.stoAttaccando) {
         this.player.body.setSize(670, 330);
         this.player.body.setOffset(isFlipped ? 240 : 300, 870);
-    } else if (this.player.anims.getName() === 'attacco') {
-        setAttackHitbox.call(this, isFlipped);
-    } else {
+    } else if (!this.player.stoAttaccando){
         this.player.body.setSize(570, 480);
         this.player.body.setOffset(isFlipped ? 390 : 240, 720);
     }
 }
-
         function resize() {
             const width = this.scale.width;
             const height = this.scale.height;
@@ -545,7 +616,6 @@ function setAttackHitbox(isFlipped) {
                 this.player.setPosition(width / 2, height / 2);
                 this.player.setDepth(10);
             }
-
             this.platforms.forEach((platform, index) => {
                 if (platform instanceof Phaser.GameObjects.Rectangle) {
                     platform.setDisplaySize(platform.width * (width / 1920), platform.height * (height / 1080));
