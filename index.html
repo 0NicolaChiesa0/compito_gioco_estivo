@@ -47,6 +47,7 @@
         function preload() {
             this.load.image('mappa1', 'assets/mappa_1.png');
             this.load.image('mappa2', 'assets/mappa_2.png');
+            this.load.image('cura', 'assets/Healthpotion.png');
             this.load.spritesheet('gattocamminata', 'assets/gatto_camminata.png', {
                 frameWidth: 1200,
                 frameHeight: 1200
@@ -91,6 +92,7 @@
                 frameWidth: 80,
                 frameHeight: 72
             });
+            
             
         }
 
@@ -179,6 +181,10 @@
             
             nemici = this.physics.add.group();
             creaNemico(600, 500, this);
+            creaNemico(900, 200, this);
+            creaNemico(1000, 500, this);
+            creaNemico(600, 200, this);
+            creaNemico(800, 100, this);
             this.player = this.physics.add.sprite(config.width / 2, config.height / 2, 'gattostatico').setOrigin(0.5, 0.5);
             this.player.setDepth(1);
             this.player.setCollideWorldBounds(true);
@@ -222,8 +228,8 @@
                 this.add.rectangle(744, 155, 395, 43),
                 this.add.rectangle(1065, 198, 50, 43),
                 this.add.rectangle(843, 285, 197, 43),
-                this.add.rectangle(1016, 417, 150, 43),
-                this.add.rectangle(720, 505, 345, 43),
+                this.add.rectangle(1018, 417, 140, 43),
+                this.add.rectangle(718, 505, 340, 43),
                 this.add.rectangle(545, 330, 200, 43)
             ];
 
