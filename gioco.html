@@ -46,130 +46,196 @@ canvas {
 <body>
 
     <script>
-        class Cat {
-            constructor(scene) {
-                this.scene = scene;
-                this.gatto = null;
-                this.lives = 3;
-                this.coins = 0;
-                this.livesText = null;
-                this.coinsText = null;
-                this.isAttacking = false;
-                this.attackTimer = 0;
+class Cat {
+    constructor(scene) {
+        this.scene = scene;
+        this.gatto = null;
+        this.lives = 3;
+        this.coins = 0;
+        this.livesText = null;
+        this.coinsText = null;
+        this.isAttacking = false;
+        this.attackTimer = 0;
 
-                this.defaultHitbox = { width: 570, height: 480, offsetX: 240, offsetY: 720 };
-                this.attackHitbox = { width: 800, height: 600, offsetX: 260, offsetY: 600 };
-            }
+        this.DEFAULT_HITBOX = { width: 570, height: 480, offsetX: 240, offsetY: 720 };
+        this.ATTACK_HITBOX = { width: 800, height: 600, offsetX: 260, offsetY: 600 };
 
-            preload() {
-                this.scene.load.spritesheet('gatto_idle', 'assets/gatto_fermo.png', { frameWidth: 1200, frameHeight: 1200 });
-                this.scene.load.spritesheet('gatto_walk', 'assets/gatto_camminata.png', { frameWidth: 1200, frameHeight: 1200 });
-                this.scene.load.spritesheet('gatto_run', 'assets/gatto_corsa.png', { frameWidth: 1200, frameHeight: 1200 });
-                this.scene.load.spritesheet('gatto_attacco', 'assets/gatto_attacco.png', { frameWidth: 1200, frameHeight: 1200 });
-                this.scene.load.spritesheet('coin', 'assets/coin.png', { frameWidth: 64, frameHeight: 64 });
-            }
+        this.SPEED = 300;
+        this.RUN_SPEED = 600;
+        this.ATTACK_COOLDOWN = 500;
+    }
 
-            create(x, y) {
-                this.gatto = this.scene.physics.add.sprite(x, y, 'gatto_idle');
-                this.gatto.setScale(0.13);
-                this.setDefaultHitbox();
-                this.gatto.body.setGravityY(300);
-                this.gatto.setBounce(0.01);
-                this.gatto.setCollideWorldBounds(true);
+    preload() {
+        this.scene.load.spritesheet('gatto_idle', 'assets/gatto_fermo.png', { frameWidth: 1200, frameHeight: 1200 });
+        this.scene.load.spritesheet('gatto_walk', 'assets/gatto_camminata.png', { frameWidth: 1200, frameHeight: 1200 });
+        this.scene.load.spritesheet('gatto_run', 'assets/gatto_corsa.png', { frameWidth: 1200, frameHeight: 1200 });
+        this.scene.load.spritesheet('gatto_attacco', 'assets/gatto_attacco.png', { frameWidth: 1200, frameHeight: 1200 });
+        this.scene.load.spritesheet('coin', 'assets/coin.png', { frameWidth: 64, frameHeight: 64 });
+    }
 
-                this.scene.anims.create({ key: 'idle', frames: this.scene.anims.generateFrameNumbers('gatto_idle', { start: 0, end: 7 }), frameRate: 10, repeat: -1 });
-                this.scene.anims.create({ key: 'walk', frames: this.scene.anims.generateFrameNumbers('gatto_walk', { start: 0, end: 7 }), frameRate: 10, repeat: -1 });
-                this.scene.anims.create({ key: 'run', frames: this.scene.anims.generateFrameNumbers('gatto_run', { start: 0, end: 3 }), frameRate: 12, repeat: -1 });
-                this.scene.anims.create({ key: 'attack', frames: this.scene.anims.generateFrameNumbers('gatto_attacco', { start: 0, end: 4 }), frameRate: 12, repeat: 0 });
+    create(x, y) {
+        this.gatto = this.scene.physics.add.sprite(x, y, 'gatto_idle');
+        this.gatto.setScale(0.13);
+        this.setHitbox('default');
+        this.gatto.body.setGravityY(300);
+        this.gatto.setBounce(0.01);
+        this.gatto.setCollideWorldBounds(true);
 
-                this.gatto.anims.play('idle');
-                this.livesText = this.scene.add.text(16, 16, 'Vite: 3', { fontSize: '32px', fill: '#fff' });
-                this.coinsText = this.scene.add.text(16, 56, 'Monete: 0', { fontSize: '32px', fill: '#fff' });
-            }
+        this.scene.anims.create({ key: 'idle', frames: this.scene.anims.generateFrameNumbers('gatto_idle', { start: 0, end: 7 }), frameRate: 10, repeat: -1 });
+        this.scene.anims.create({ key: 'walk', frames: this.scene.anims.generateFrameNumbers('gatto_walk', { start: 0, end: 7 }), frameRate: 10, repeat: -1 });
+        this.scene.anims.create({ key: 'run', frames: this.scene.anims.generateFrameNumbers('gatto_run', { start: 0, end: 3 }), frameRate: 12, repeat: -1 });
+        this.scene.anims.create({ key: 'attack', frames: this.scene.anims.generateFrameNumbers('gatto_attacco', { start: 0, end: 4 }), frameRate: 12, repeat: 0 });
 
-            setDefaultHitbox() {
-                this.gatto.body.setSize(this.defaultHitbox.width, this.defaultHitbox.height);
-                this.gatto.body.setOffset(this.gatto.flipX ? this.defaultHitbox.offsetX + 150 : this.defaultHitbox.offsetX, this.defaultHitbox.offsetY);
-            }
+        this.gatto.anims.play('idle');
+        this.createUI();
+    }
 
-            setAttackHitbox() {
-                this.gatto.body.setSize(this.attackHitbox.width, this.attackHitbox.height);
-                this.gatto.body.setOffset(this.gatto.flipX ? this.attackHitbox.offsetX - 150 : this.attackHitbox.offsetX, this.attackHitbox.offsetY);
-            }
+    createUI() {
+        const createTextBackground = (x, y, width, height) => {
+            const graphics = this.scene.add.graphics();
+            graphics.fillStyle(0x3f3851, 0.9); // Colore nero con maggiore opacità
+            graphics.fillRoundedRect(x, y, width, height, 5); // Angoli stondati
+            return graphics;
+        };
 
-            update(cursors, keys) {
-    const speed = 300;
-    const runSpeed = 600;
-    const attackCooldown = 500;
+        this.livesBackground = createTextBackground(10, 10, 150, 50);
+        this.coinsBackground = createTextBackground(10, 70, 265, 50); 
 
-    if (this.isAttacking) {
-        this.setAttackHitbox();
-        this.gatto.anims.play('attack', true);
-        this.gatto.setVelocityX(0);
+        this.livesText = this.scene.add.text(20, 20, 'Vite: 3', { fontSize: '32px', fill: '#fff' });
+        this.coinsText = this.scene.add.text(20, 80, 'Monete: 0/25', { fontSize: '32px', fill: '#fff' });
+    }
 
-        if (this.scene.time.now > this.attackTimer) {
-            this.isAttacking = false;
-            this.setDefaultHitbox();
-            this.gatto.anims.play('idle', true);
-        }
-    } else {
-        this.setDefaultHitbox();
+    setHitbox(type) {
+        const hitbox = type === 'attack' ? this.ATTACK_HITBOX : this.DEFAULT_HITBOX;
+        this.gatto.body.setSize(hitbox.width, hitbox.height);
+        this.gatto.body.setOffset(this.gatto.flipX ? hitbox.offsetX + (type === 'attack' ? -150 : 150) : hitbox.offsetX, hitbox.offsetY);
+    }
 
-        if (cursors.left.isDown || keys.left.isDown) {
-            this.gatto.setVelocityX(keys.shift.isDown ? -runSpeed : -speed);
-            this.gatto.flipX = true;
-            this.gatto.anims.play(keys.shift.isDown ? 'run' : 'walk', true);
-        } 
-        else if (cursors.right.isDown || keys.right.isDown) {
-            this.gatto.setVelocityX(keys.shift.isDown ? runSpeed : speed);
-            this.gatto.flipX = false;
-            this.gatto.anims.play(keys.shift.isDown ? 'run' : 'walk', true);
-        } 
-        else {
+    update(cursors, keys) {
+        if (this.isAttacking) {
+            this.setHitbox('attack');
+            this.gatto.anims.play('attack', true);
             this.gatto.setVelocityX(0);
-            if (this.gatto.anims.currentAnim.key === 'walk' || this.gatto.anims.currentAnim.key === 'run') {
+
+            if (this.scene.time.now > this.attackTimer) {
+                this.isAttacking = false;
+                this.setHitbox('default');
                 this.gatto.anims.play('idle', true);
             }
+        } else {
+            this.setHitbox('default');
+            this.handleMovement(cursors, keys);
+        }
+
+        this.updateUI();
+    }
+
+    handleMovement(cursors, keys) {
+        if (cursors.left.isDown || keys.left.isDown) {
+            this.moveCat(-1, keys.shift.isDown);
+        } else if (cursors.right.isDown || keys.right.isDown) {
+            this.moveCat(1, keys.shift.isDown);
+        } else {
+            this.stopCat();
         }
 
         if (keys.jump.isDown && this.gatto.body.touching.down) {
             this.gatto.setVelocityY(-500);
         }
 
-        if (keys.attack.isDown) {
-            if (!this.isAttacking && this.scene.time.now > this.attackTimer) {
-                this.isAttacking = true;
-                this.attackTimer = this.scene.time.now + attackCooldown;
-                this.gatto.anims.play('attack', true);
-            }
+        if (keys.attack.isDown && !this.isAttacking && this.scene.time.now > this.attackTimer) {
+            this.startAttack();
         }
     }
 
-    if (this.livesText) {
-        this.livesText.setText('Vite: ' + this.lives);
+    moveCat(direction, isRunning) {
+        const speed = isRunning ? this.RUN_SPEED : this.SPEED;
+        this.gatto.setVelocityX(direction * speed);
+        this.gatto.flipX = direction < 0;
+        this.gatto.anims.play(isRunning ? 'run' : 'walk', true);
     }
-    if (this.coinsText) {
-        this.coinsText.setText('Monete: ' + this.coins + '/25');
+
+    stopCat() {
+        this.gatto.setVelocityX(0);
+        if (this.gatto.anims.currentAnim.key !== 'idle') {
+            this.gatto.anims.play('idle', true);
+        }
+    }
+
+    startAttack() {
+        this.isAttacking = true;
+        this.attackTimer = this.scene.time.now + this.ATTACK_COOLDOWN;
+        this.gatto.anims.play('attack', true);
+    }
+
+    updateUI() {
+        if (this.livesText) {
+            this.livesText.setText(`Vite: ${this.lives}`);
+        }
+        if (this.coinsText) {
+            this.coinsText.setText(`Monete: ${this.coins}/25`);
+        }
+    }
+
+    loseLife() {
+        this.lives--;
+        if (this.lives <= 0) {
+            console.log('Game Over');
+            this.scene.scene.start('MenuScene');
+            window.location.reload();
+        }
+    }
+
+    increaseLife() {
+        this.lives++;
+        if (this.livesText) {
+            this.livesText.setText(`Vite: ${this.lives}`);
+        }
+    }
+
+    collectCoin() {
+        this.coins++;
     }
 }
-            loseLife() {
-                this.lives--;
-                if (this.lives <= 0) {
-                    console.log('Game Over');
-                    this.scene.scene.start('MenuScene');
-                    window.location.reload()
-                }
-            }
-            increaseLife() {
-                this.lives++;
-                if (this.livesText) {
-                    this.livesText.setText('Vite: ' + this.lives);
-                }
-            }
-            collectCoin() {
-                this.coins++;
-            }
-        }
+
+function createRectangularPlatforms(scene, platformsData) {
+    const platforms = scene.add.group();
+    platformsData.forEach(data => {
+        const platform = scene.add.rectangle(data.x, data.y, data.width, data.height, data.color).setOrigin(0.5, 0.5);
+        scene.physics.add.existing(platform, true);
+        platforms.add(platform);
+    });
+    return platforms;
+}
+
+function createCoins(scene, coinsData) {
+    const coins = scene.physics.add.group({
+        key: 'coin',
+        frameQuantity: coinsData.length,
+        collideWorldBounds: true,
+        immovable: false
+    });
+    coins.children.iterate((coin, index) => {
+        const data = coinsData[index];
+        coin.setPosition(data.x, data.y);
+        coin.setScale(0.7);
+        coin.setOrigin(0.5, 0.5);
+        coin.setSize(64, 64);
+        coin.setOffset(0, 0);
+        scene.anims.create({
+            key: 'spin',
+            frames: scene.anims.generateFrameNumbers('coin', { start: 0, end: 13 }),
+            frameRate: 24,
+            repeat: -1
+        });
+        coin.anims.play('spin');
+    });
+    return coins;
+}
+
+
+
+
 
         function createRectangularPlatforms(scene, platformsData) {
             const platforms = scene.add.group();
@@ -353,7 +419,7 @@ class Scene1 extends Phaser.Scene {
         this.load.audio('bonus_sound', 'assets/potion_sound.mp3');
         this.load.audio('background_music', 'assets/backround_music.mp3');
         this.load.spritesheet('enemy', 'assets/slime1_move.png', { frameWidth: 42, frameHeight: 36 });
-        this.load.spritesheet('enemy_die', 'assets/slime1_die.png', { frameWidth: 66, frameHeight: 30 });
+        this.load.spritesheet('enemy_die', 'assets/slime1_die.png', { frameWidth: 66, frameHeight: 36 });
     }
 
     create() {
@@ -572,18 +638,18 @@ class Scene2 extends Phaser.Scene {
         this.load.audio('25coin_sound', 'assets/suono_raccolta_moneta_1.mp3');
         this.load.audio('damage_sound', 'assets/suono_acqua.mp3');
         this.load.audio('bonus_sound', 'assets/potion_sound.mp3');
-        this.load.audio('background_music', 'assets/background_music.mp3');
-        this.load.spritesheet('enemy', 'assets/slime1_move.png', { frameWidth: 42, frameHeight: 36 });
-        this.load.spritesheet('enemy_die', 'assets/slime1_die.png', { frameWidth: 66, frameHeight: 30 });
+        // this.load.audio('background_music', 'assets/background_music.mp3');
+        this.load.spritesheet('enemy2', 'assets/slime2_move.png', { frameWidth: 42, frameHeight: 36 });
+        this.load.spritesheet('enemy2_die', 'assets/slime2_die.png', { frameWidth: 66, frameHeight: 36 });
     }
 
     create() {
         this.add.image(this.scale.width / 2, this.scale.height / 2, 'mappa_2');
         this.cat.create(this.startingPosition.x, this.startingPosition.y);
 
-        this.backgroundMusic = this.sound.add('background_music');
-        this.backgroundMusic.setVolume(0.05);
-        this.backgroundMusic.play({ loop: true });
+        // this.backgroundMusic = this.sound.add('background_music');
+        // this.backgroundMusic.setVolume(0.05);
+        // this.backgroundMusic.play({ loop: true });
         this.platforms = createRectangularPlatforms(this, [
             { x: 1088, y: 32, width: 1280, height: 64 },
             { x: 480, y: 96, width: 64, height: 64 },
@@ -617,14 +683,14 @@ class Scene2 extends Phaser.Scene {
             { x: 1120, y: 994, width: 1216, height: 60 }
         ]);
         this.anims.create({
-            key: 'slime_move',
-            frames: this.anims.generateFrameNumbers('enemy', { start: 0, end: 6 }),
+            key: 'slime2_move',
+            frames: this.anims.generateFrameNumbers('enemy2', { start: 0, end: 6 }),
             frameRate: 10,
             repeat: -1
         });
         this.anims.create({
-            key: 'slime_die',
-            frames: this.anims.generateFrameNumbers('enemy_die', { start: 0, end: 12 }),
+            key: 'slime2_die',
+            frames: this.anims.generateFrameNumbers('enemy2_die', { start: 0, end: 12 }),
             frameRate: 10,
             repeat: 0
         });
@@ -669,9 +735,9 @@ class Scene2 extends Phaser.Scene {
 
     createEnemies() {
         this.enemyData.forEach(data => {
-            const enemy = this.physics.add.sprite(data.x, data.y, 'enemy');
+            const enemy = this.physics.add.sprite(data.x, data.y, 'enemy2');
             enemy.setScale(1.5);
-            enemy.anims.play('slime_move');
+            enemy.anims.play('slime2_move');
             enemy.leftBound = data.leftBound;
             enemy.rightBound = data.rightBound;
             enemy.speed = data.speed;
@@ -730,43 +796,46 @@ class Scene2 extends Phaser.Scene {
     }
 
     showBonus() {
-    if (this.bonus) {
-        this.bonus.destroy();
+        if (this.bonus) {
+            this.bonus.destroy();
+        }
+        let positionFound = false;
+        let position = { x: 0, y: 0 };
+        const maxAttempts = 10;
+        let attempts = 0;
+
+        while (!positionFound && attempts < maxAttempts) {
+            const randomIndex = Phaser.Math.Between(0, this.coinPositions.length - 1);
+            position = this.coinPositions[randomIndex];
+
+            // Verifica se la posizione è libera
+            const coinAtPosition = this.coins.getChildren().some(coin => {
+                return Phaser.Geom.Intersects.RectangleToRectangle(
+                    new Phaser.Geom.Rectangle(position.x, position.y, 64, 64),
+                    new Phaser.Geom.Rectangle(coin.x - 32, coin.y - 32, 64, 64)
+                );
+            });
+
+            if (!coinAtPosition) {
+                positionFound = true;
+            } else {
+                attempts++;
+            }
+        }
+
+        if (!positionFound) {
+            console.log('Nessuna posizione libera trovata per il bonus.');
+            return;
+        }
+        this.bonus = this.physics.add.sprite(position.x, position.y, 'bonus');
+        this.bonus.setScale(1.4);
+        this.bonus.setSize(20, 25);
+        this.bonus.setOffset(0, 0); 
+        this.physics.add.collider(this.bonus, this.platforms);
+        this.physics.add.overlap(this.cat.gatto, this.bonus, this.collectBonus, null, this);
+
+        console.log('Bonus creato nella posizione:', position);
     }
-
-    if (this.coins.getLength() === 0) {
-        console.log('Nessuna moneta disponibile per posizionare un bonus. Numero di monete:', this.coins.getLength());
-        return;
-    }
-
-    const randomIndex = Phaser.Math.Between(0, this.coinPositions.length - 1);
-    const { x, y } = this.coinPositions[randomIndex];
-
-    console.log('Tentativo di posizionare un bonus nella posizione:', { x, y });
-
-    const coinAtPosition = this.coins.getChildren().some(coin => {
-        return Phaser.Geom.Intersects.RectangleToRectangle(
-            new Phaser.Geom.Rectangle(x, y, 64, 64),
-            new Phaser.Geom.Rectangle(coin.x - 32, coin.y - 32, 64, 64)
-        );
-    });
-
-    if (coinAtPosition) {
-        console.log('La posizione selezionata è occupata da una moneta. Prova con una nuova posizione.');
-        this.showBonus();
-        return;
-    }
-
-    this.bonus = this.physics.add.sprite(x, y, 'bonus');
-    this.bonus.setScale(1.4);
-    this.bonus.setSize(20, 25);
-    this.bonus.setOffset(0, 0); 
-    this.physics.add.collider(this.bonus, this.platforms);
-    this.physics.add.overlap(this.cat.gatto, this.bonus, this.collectBonus, null, this);
-
-    console.log('Bonus creato nella posizione:', { x, y });
-}
-
 
     handleDangerousPlatformCollision(cat, platform) {
         this.sound.play('damage_sound');
@@ -782,7 +851,7 @@ class Scene2 extends Phaser.Scene {
 
     handleEnemyDeath(enemy) {
         if (enemy) {
-            enemy.anims.play('slime_die', true);
+            enemy.anims.play('slime2_die', true);
             enemy.disableBody();
             enemy.setVelocityX(0); 
             this.time.delayedCall(1000, () => {
@@ -795,19 +864,16 @@ class Scene2 extends Phaser.Scene {
     }
 }
 
+
+
 class Scene3 extends Phaser.Scene {
     constructor() {
         super({ key: 'Scene3' });
         this.cat = new Cat(this);
         this.coinPositions = [
-            { x: 600, y: 600 },
-            { x: 800, y: 400 },
-            { x: 1200, y: 300 },
-            { x: 1400, y: 500 },
-            { x: 880, y: 700 },
-            { x: 950, y: 200 },
-            { x: 500, y: 300 },
-            { x: 500, y: 700 }
+            { x: 600, y: 600 }, { x: 800, y: 400 }, { x: 1200, y: 300 },
+            { x: 1400, y: 500 }, { x: 880, y: 700 }, { x: 950, y: 200 },
+            { x: 500, y: 300 }, { x: 500, y: 700 }
         ];
         this.startingPosition = { x: 500, y: 700 };
         this.currentCoins = 0;
@@ -819,100 +885,90 @@ class Scene3 extends Phaser.Scene {
         this.cat.preload();
         this.load.image('mappa_3', 'assets/mappa_3.png');
         this.load.spritesheet('coin', 'assets/coin_spritesheet.png', { frameWidth: 32, frameHeight: 32 });
-        this.load.image('bonus', 'assets/Healthpotion.png');
         this.load.image('bomb', 'assets/bomb.png');
         this.load.audio('coin_sound', 'assets/suono_raccolta_moneta_2.mp3');
         this.load.audio('25coin_sound', 'assets/suono_raccolta_moneta_1.mp3');
         this.load.audio('damage_sound', 'assets/suono_acqua.mp3');
-        this.load.audio('bonus_sound', 'assets/potion_sound.mp3');
         this.load.audio('background_music', 'assets/backround_music.mp3');
     }
 
     create() {
-        this.add.image(this.scale.width / 2, this.scale.height / 2, 'mappa_3');
-        this.cat.create(this.startingPosition.x, this.startingPosition.y);
+        this.createBackground();
+        this.createCat();
+        this.createMusic();
+        this.createPlatforms();
+        this.createCoins();
+        this.createBombs();
+        this.createCollisions();
+        this.createControls();
+    }
 
+    update() {
+        this.cat.update(this.cursors, this.keys);
+    }
+
+    // Helper Methods
+    createBackground() {
+        this.add.image(this.scale.width / 2, this.scale.height / 2, 'mappa_3');
+    }
+
+    createCat() {
+        this.cat.create(this.startingPosition.x, this.startingPosition.y);
+    }
+
+    createMusic() {
         this.backgroundMusic = this.sound.add('background_music');
         this.backgroundMusic.setVolume(0.05);
         this.backgroundMusic.play({ loop: true });
+    }
 
+    createPlatforms() {
         this.platforms = createRectangularPlatforms(this, [
-            { x: 928, y: 32, width: 704, height: 64 },
-            { x: 608, y: 96, width: 64, height: 64 },
-            { x: 1248, y: 96, width: 64, height: 64 },
-            { x: 512, y: 160, width: 256, height: 64 },
-            { x: 1344, y: 160, width: 256, height: 64 },
-            { x: 416, y: 352, width: 64, height: 320 },
-            { x: 1440, y: 320, width: 64, height: 256 },
-            { x: 1504, y: 416, width: 64, height: 64 },
-            { x: 1568, y: 576, width: 64, height: 384 },
-            { x: 1376, y: 738, width: 320, height: 64 },
-            { x: 1184, y: 800, width: 64, height: 64 },
-            { x: 1120, y: 896, width: 64, height: 256 },
-            { x: 864, y: 896, width: 64, height: 256 },
-            { x: 800, y: 800, width: 64, height: 64 },
-            { x: 576, y: 864, width: 512, height: 64 },
-            { x: 352, y: 704, width: 64, height: 256 },
-            { x: 416, y: 608, width: 64, height: 64 },
-            { x: 480, y: 544, width: 64, height: 192 },
-            { x: 544, y: 416, width: 192, height: 64 },
-            { x: 992, y: 352, width: 320, height: 64 },
-            { x: 800, y: 544, width: 192, height: 64 },
-            { x: 1216, y: 544, width: 256, height: 64 },
-            { x: 992, y: 736, width: 48, height: 64 },
-            { x: 992, y: 1009, width: 192, height: 30 }
+            { x: 928, y: 32, width: 704, height: 64 }, { x: 608, y: 96, width: 64, height: 64 },
+            { x: 1248, y: 96, width: 64, height: 64 }, { x: 512, y: 160, width: 256, height: 64 },
+            { x: 1344, y: 160, width: 256, height: 64 }, { x: 416, y: 352, width: 64, height: 320 },
+            { x: 1440, y: 320, width: 64, height: 256 }, { x: 1504, y: 416, width: 64, height: 64 },
+            { x: 1568, y: 576, width: 64, height: 384 }, { x: 1376, y: 738, width: 320, height: 64 },
+            { x: 1184, y: 800, width: 64, height: 64 }, { x: 1120, y: 896, width: 64, height: 256 },
+            { x: 864, y: 896, width: 64, height: 256 }, { x: 800, y: 800, width: 64, height: 64 },
+            { x: 576, y: 864, width: 512, height: 64 }, { x: 352, y: 704, width: 64, height: 256 },
+            { x: 416, y: 608, width: 64, height: 64 }, { x: 480, y: 544, width: 64, height: 192 },
+            { x: 544, y: 416, width: 192, height: 64 }, { x: 992, y: 352, width: 320, height: 64 },
+            { x: 800, y: 544, width: 192, height: 64 }, { x: 1216, y: 544, width: 256, height: 64 },
+            { x: 992, y: 736, width: 48, height: 64 }, { x: 992, y: 1009, width: 192, height: 30 }
         ]);
-
         this.dangerousPlatforms = createRectangularPlatforms(this, [
-            { x: 992, y: 994, width: 192, height: 60 } 
+            { x: 992, y: 994, width: 192, height: 60 }
         ]);
+    }
 
+    createCoins() {
         this.coins = this.physics.add.group({
             key: 'coin',
             frameQuantity: 0,
-            collideWorldBounds: true,
-            immovable: false
+            collideWorldBounds: true
         });
+        this.showNextCoin();
+    }
 
+    createBombs() {
         this.bombs = this.physics.add.group({
             key: 'bomb',
             frameQuantity: 0,
-            collideWorldBounds: true,
-            immovable: false
+            collideWorldBounds: true
         });
+    }
 
-        this.bonus = null;
-
-        this.showNextCoin();
-
+    createCollisions() {
         this.physics.add.collider(this.cat.gatto, this.platforms);
         this.physics.add.collider(this.coins, this.platforms);
         this.physics.add.collider(this.bombs, this.platforms);
         this.physics.add.collider(this.cat.gatto, this.dangerousPlatforms, this.handleDangerousPlatformCollision, null, this);
-        this.physics.add.overlap(this.cat.gatto, this.coins, (cat, coin) => {
-            coin.destroy();
-            this.coins.remove(coin);
-            this.cat.collectCoin();
-            this.currentCoins++;
-
-            if (this.currentCoins % 5 === 0) {
-                this.spawnBomb(); 
-            }
-
-            if (this.currentCoins % this.bonusSpawnInterval === 0) {
-                this.showBonus();
-            }
-            if (this.currentCoins < 25) {
-                this.showNextCoin();
-            } else {
-                this.sound.play('25coin_sound');
-                this.scene.start('Scene4');
-            }
-            this.sound.play('coin_sound');
-        });
-
+        this.physics.add.overlap(this.cat.gatto, this.coins, this.collectCoin, null, this);
         this.physics.add.overlap(this.cat.gatto, this.bombs, this.handleBombCollision, null, this);
+    }
 
+    createControls() {
         this.cursors = this.input.keyboard.createCursorKeys();
         this.keys = {
             left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
@@ -923,21 +979,12 @@ class Scene3 extends Phaser.Scene {
         };
     }
 
-    update() {
-        this.cat.update(this.cursors, this.keys);
-    }
-
     showNextCoin() {
         if (this.currentCoins >= 25) return;
 
-        const randomIndex = Phaser.Math.Between(0, this.coinPositions.length - 1);
-        const { x, y } = this.coinPositions[randomIndex];
-
+        const { x, y } = Phaser.Math.RND.pick(this.coinPositions);
         const coin = this.coins.create(x, y, 'coin');
-        coin.setScale(0.7);
-        coin.setOrigin(0.5, 0.5);
-        coin.setSize(64, 64);
-        coin.setOffset(0, 0);
+        coin.setScale(0.7).setOrigin(0.5, 0.5).setSize(64, 64).setOffset(0, 0);
 
         this.anims.create({
             key: 'spin',
@@ -948,28 +995,23 @@ class Scene3 extends Phaser.Scene {
         coin.anims.play('spin');
     }
 
-    showBonus() {
-        if (this.bonus) {
-            this.bonus.destroy();
+    collectCoin(cat, coin) {
+        coin.destroy();
+        this.coins.remove(coin);
+        this.cat.collectCoin();
+        this.currentCoins++;
+
+        if (this.currentCoins % 5 === 0) {
+            this.spawnBomb(); 
         }
 
-        if (this.coins.getLength() === 0) return;
-
-        const randomIndex = Phaser.Math.Between(0, this.coinPositions.length - 1);
-        const { x, y } = this.coinPositions[randomIndex];
-
-        this.bonus = this.physics.add.sprite(x, y, 'bonus');
-        this.bonus.setScale(1.4);
-        this.bonus.setSize(20, 25);
-        this.bonus.setOffset(0, 0);
-        this.physics.add.collider(this.bonus, this.platforms);
-        this.physics.add.overlap(this.cat.gatto, this.bonus, this.collectBonus, null, this);
-    }
-
-    collectBonus(cat, bonus) {
-        this.sound.play('bonus_sound');
-        this.cat.increaseLife();
-        bonus.disableBody(true, true);
+        if (this.currentCoins < 25) {
+            this.showNextCoin();
+        } else {
+            this.sound.play('25coin_sound');
+            this.scene.start('Scene4');
+        }
+        this.sound.play('coin_sound');
     }
 
     handleDangerousPlatformCollision(cat, platform) {
@@ -979,22 +1021,22 @@ class Scene3 extends Phaser.Scene {
     }
 
     spawnBomb() {
-        const randomIndex = Phaser.Math.Between(0, this.coinPositions.length - 1);
-        const { x, y } = this.coinPositions[randomIndex];
-
+        const { x, y } = Phaser.Math.RND.pick(this.coinPositions);
         const bomb = this.bombs.create(x, y, 'bomb');
-        bomb.setVelocityX(Phaser.Math.Between(-150, 150)); 
-        bomb.setVelocityY(Phaser.Math.Between(-150, 150)); 
-        bomb.setBounce(1); 
-        bomb.setCollideWorldBounds(true);
+        bomb.setVelocityX(Phaser.Math.Between(-150, 150))
+            .setVelocityY(Phaser.Math.Between(-150, 150))
+            .setBounce(1.001)
+            .setCollideWorldBounds(true);
         this.bombsSpawned++;
     }
 
     handleBombCollision(cat, bomb) {
         this.cat.loseLife();
-        bomb.destroy(); 
+        bomb.destroy();
     }
 }
+
+
 
 class Scene4 extends Phaser.Scene {
     constructor() {
@@ -1115,7 +1157,7 @@ class Scene4 extends Phaser.Scene {
             type: Phaser.AUTO,
             width: 1984,
             height: 1024,
-            scene: [ MenuScene, Scene1,  Scene2, Scene3, Scene4], 
+            scene: [ Scene2, MenuScene, Scene1, Scene3, Scene4], 
             physics: {
                 default: 'arcade',
                 arcade: {
